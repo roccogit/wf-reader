@@ -1,0 +1,147 @@
+{
+  "reference": "consumer_finance_fronend@https://consumer-finance-frontend.lab.sml.sit.g4c.unicredit.eu/remoteEntry.js",
+  "configuration": {
+    "id": "consumer_finance_cpi",
+    "initialState": "START",
+    "endStates": [
+      "CPI_VERIFY_KO",
+      "COMPLETED"
+    ],
+    "states": [
+      {
+        "type": "SimpleState",
+        "id": "START"
+      },
+      {
+        "type": "SimpleState",
+        "id": "CPI_CREATED"
+      },
+      {
+        "type": "ActionState",
+        "id": "VERIFY_CPI",
+        "entryActions": [
+          {
+            "type": "HttpRequestAction",
+            "expectEvent": true,
+            "method": "POST",
+            "forwardOmcJwt": true,
+            "headers": {
+              "Content-Type": "application/json"
+            },
+            "url": "http://svc-consumer-finance-cpi:8080/cpi/v1/cpi/verify",
+            "body": "{\"dossierId\":$$DOSSIER_ID$$}"
+          }
+        ]
+      },
+      {
+        "type": "SimpleState",
+        "id": "CPI_VERIFIED"
+     },
+      {
+        "type": "SimpleState",
+        "id": "CPI_VERIFY_KO"
+      },
+      {
+        "type": "SimpleState",
+        "id": "CPI_SIGNED"
+      },
+      {
+        "type": "SimpleState",
+        "id": "COMPLETED"
+      }
+    ],
+    "transitions": [
+      {
+        "type": "ExternalTransition",
+        "source": "START",
+        "target": "CPI_CREATED",
+        "event": "USER_WITH_NDG"
+      },
+      {
+        "type": "ExternalTransition",
+        "source": "CPI_CREATED",
+        "target": "VERIFY_CPI",
+        "event": "EVT_VERIFY"
+      },
+      {
+        "type": "ExternalTransition",
+        "source": "START",
+        "target": "CPI_CREATED",
+        "event": "USER_WITHOUT_NDG"
+      },
+      {
+        "type": "ExternalTransition",
+        "source": "VERIFY_CPI",
+        "target": "CPI_VERIFIED",
+        "event": "EVT_CPI_VERIFICATION",
+        "actions": [
+          {
+            "type": "EventToParentAction",
+            "event": "VERIFY_CPI_OK"
+          }
+        ]
+      },
+      {
+        "type": "ExternalTransition",
+        "source": "VERIFY_CPI",
+        "target": "CPI_VERIFY_KO",
+        "event": "EVT_CPI_VERIFY_KO",
+        "actions": [
+          {
+            "type": "UpdateProductDossierAction",
+            "url": "http://svc-consumer-finance-cpi:8080",
+            "update": "COMPLETED_IN_ERROR"
+          },
+          {
+            "type": "UpdateDossierAction",
+            "update": "COMPLETED_IN_ERROR"
+          },
+          {
+            "type": "EventToParentAction",
+            "event": "VERIFY_CPI_KO"
+          }
+        ]
+      },
+      {
+        "type": "ExternalTransition",
+        "source": "CPI_VERIFIED",
+        "target": "CPI_SIGNED",
+        "event": "SIGNED",
+        "actions": [
+          {
+            "type": "UpdateProductDossierAction",
+            "url": "http://svc-consumer-finance-cpi:8080",
+            "update": "SIGNED"
+          },
+          {
+            "type": "EventToParentAction",
+            "event": "SIGN_RECEIPT",
+            "releaseControl": true
+          }
+        ]
+      },
+      {
+        "type": "ExternalTransition",
+        "source": "CPI_SIGNED",
+        "target": "COMPLETED",
+        "event": "COMPLETED",
+        "actions": [
+          {
+            "type": "UpdateProductDossierAction",
+            "url": "http://svc-consumer-finance-cpi:8080",
+            "update": "COMPLETED"
+          },
+          {
+            "type": "UpdateDossierAction",
+            "update": "COMPLETED"
+          },
+          {
+            "type": "EventToParentAction",
+            "event": "COMPLETED",
+            "releaseControl": true
+          }
+        ]
+      }
+    ]
+  }
+}
